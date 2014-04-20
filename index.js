@@ -35,39 +35,39 @@ var marshal = require('tart-marshal');
 
 module.exports.checkpoint = function checkpoint(options) {
     options = options || {};
-    
+
     options.events = [];  // queue of pending events
-    
+
     var name = options.name || 'checkpoint';
     var sponsor = options.sponsor || tart.minimal();
     var router = marshal.router(sponsor);
     var domain = router.domain(name);
     var receptionist = domain.receptionist;
     domain.receptionist = function checkpointReceptionist(message) {
-        console.log('checkpointReceptionist:', message);
+        console.log('---***---  checkpointReceptionist ---***---\n', message);
         receptionist(message);  // delegate to original receptionist
         options.saveCheckpoint(options.errorHandler);
     };
     var transport = domain.transport;
     domain.transport = function checkpointTransport(message) {
-        console.log('checkpointTransport:', message);
+        console.log('---***---  checkpointTransport ---***---\n', message);
         transport(message);  // delegate to original transport
     };
-    
+
     var eventBuffer = sponsor((function () {
         var queue = options.events;  // alias event queue
         var bufferReadyBeh = function (event) {
-            console.log('bufferReadyBeh:', event);
+            console.log('---***---  bufferReadyBeh ---***---\n', event);
             if (event !== null) {  // put
-                console.log('bufferReadyBeh put:', event);
+                console.log('---***---  bufferReadyBeh put ---***---\n', event);
                 eventConsumer(event);
                 this.behavior = bufferWaitBeh;
             }
         };
         var bufferWaitBeh = function (event) {
-            console.log('bufferWaitBeh:', event);
+            console.log('---***---  bufferWaitBeh ---***---\n', event);
             if (event === null) {  // take
-                console.log('bufferWaitBeh take:', queue);
+                console.log('---***---  bufferWaitBeh take ---***---\n', queue);
                 if (queue.length) {
                     event = queue.shift();
                     eventConsumer(event);
@@ -75,7 +75,7 @@ module.exports.checkpoint = function checkpoint(options) {
                     this.behavior = bufferReadyBeh;
                 }
             } else {  // put
-                console.log('bufferWaitBeh put:', event);
+                console.log('---***---  bufferWaitBeh put ---***---\n', event);
                 queue.push(event);
             }
         };
@@ -83,7 +83,7 @@ module.exports.checkpoint = function checkpoint(options) {
     })());
     var eventConsumer = sponsor((function () {
         var eventConsumerBeh = function consumerBeh(event) {
-            console.log('eventConsumerBeh:', event);
+            console.log('---***---  eventConsumerBeh ---***---\n', event);
             options.processEvent(event);
             options.saveCheckpoint(function (error) {
                 options.errorHandler(error);
@@ -96,7 +96,7 @@ module.exports.checkpoint = function checkpoint(options) {
 
     options.saveCheckpoint = options.saveCheckpoint || function saveCheckpoint(callback) {
         var effect = options.effect;
-        console.log('saveCheckpoint:', effect);
+        console.log('---***---  saveCheckpoint ---***---\n', effect);
         // If effect is empty, checkpoint is done.
         if (options.effectIsEmpty(effect)) { return callback(false); }
         // Initialize empty effect.
@@ -115,15 +115,15 @@ module.exports.checkpoint = function checkpoint(options) {
 
     options.logEffect = options.logEffect || function logEffect(effect, callback) {
         var json = domain.encode(effect);
-        console.log('logEffect:', json);
+        console.log('---***---  logEffect ---***---\n', json);
         setImmediate(function () {
             callback(false);
         });
     };
 
     options.persistState = options.persistState || function persistState(effect, events, callback) {
-        console.log('persistState effect:', effect);
-        console.log('persistState events:', events);
+        console.log('---***---  persistState effect ---***---\n', effect);
+        console.log('---***---  persistState events ---***---\n', events);
         setImmediate(function () {
             callback(false);
         });
@@ -151,17 +151,17 @@ module.exports.checkpoint = function checkpoint(options) {
         return false;
     };
     options.applyEffect = options.applyEffect || function applyEffect(effect) {
-        console.log('applyEffect:', effect);
+        console.log('---***---  applyEffect ---***---\n', effect);
         effect.sent.forEach(eventBuffer);  // enqueue sent events
     };
 
-    
+
     options.compileBehavior = options.compileBehavior || function compileBehavior(source) {
         return eval('(' + source + ')');  // must produce a Function
     };
 
     options.processEvent = options.processEvent || function processEvent(event) {
-        console.log('processEvent event:', event);
+        console.log('---***---  processEvent event ---***---\n', event);
         options.effect.event = event;
         try {
             options.effect.behavior = event.context.behavior;
@@ -172,21 +172,21 @@ module.exports.checkpoint = function checkpoint(options) {
         } catch (exception) {
             options.effect.exception = exception;
         }
-        console.log('processEvent effect:', options.effect);
+        console.log('---***---  processEvent effect ---***---\n', options.effect);
     }
 
     options.effect = options.newEffect();  // initialize empty effect
 
     options.errorHandler = options.errorHandler || function errorHandler(error) {
         if (error) {
-            console.log('FAIL!', error);
+            console.log('---***---  FAIL! ---***---\n', error);
         }
     };
 
     setImmediate(function () {  // prime the pump...
         options.saveCheckpoint(options.errorHandler);
     });
-    
+
     options.checkpoint = {
         router: router,
         domain: domain,
